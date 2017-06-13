@@ -1,0 +1,142 @@
+<!DOCTYPE HTML>
+<%@ page class="IndexPage" namespace="MyDevices" contentType="text/html;charset=utf-8" compressed="true" context="DeviceManager::Ptr" precondition="U::authenticate(request, response)" %>
+
+<%@ header include="DeviceManager.h" %>
+<%@ impl include="Utility.h" %>
+
+<%@ include page="../html/template.inc" %>
+
+<%%
+pageTemplate.set("title", "Gateway");
+std::string message;
+DeviceManager::Ptr pDeviceManager = context();
+
+std::string action = form.get("action", "");
+std::string target = form.get("target", "");
+try
+{
+	if (action == "add")
+	{
+		Poco::AutoPtr<Poco::Util::AbstractConfiguration> pDeviceConfig = pDeviceManager->createDevice();
+		response.redirect("/device/" + pDeviceConfig->getString("webtunnel.deviceId"));
+		return;
+	}
+	else if (action == "remove")
+	{
+		pDeviceManager->removeDevice(target);
+		pDeviceManager->restartAgents();
+	}
+	else if (action == "update")
+	{
+		Poco::AutoPtr<Poco::Util::AbstractConfiguration> pDeviceConfig = pDeviceManager->deviceConfiguration(target);
+		pDeviceConfig->setString("webtunnel.deviceName", form.get("deviceName"));
+		pDeviceConfig->setString("webtunnel.host", form.get("host"));
+		pDeviceConfig->setString("webtunnel.ports", form.get("ports"));
+		pDeviceConfig->setString("webtunnel.httpPort", form.get("httpPort"));
+		pDeviceConfig->setString("webtunnel.password", form.get("password"));
+		pDeviceManager->updateDevice(pDeviceConfig);
+		pDeviceManager->restartAgents();
+	}
+	else if (action == "cancel")
+	{
+		Poco::AutoPtr<Poco::Util::AbstractConfiguration> pDeviceConfig = pDeviceManager->deviceConfiguration(target);
+		if (!pDeviceConfig->getBool("webtunnel.enable", true))
+		{
+			pDeviceManager->removeDevice(target);
+		}
+	}
+}
+catch (Poco::Exception& exc)
+{
+	message = exc.displayText();
+}
+
+std::vector<std::string> devices = pDeviceManager->enumerateDevices();
+%>
+
+<%@ include page="../html/header.inc" %>
+
+<script>
+function addDevice()
+{
+	document.actionForm.action.value = "add";
+	document.actionForm.submit();
+}
+
+function removeDevice(id)
+{
+	if (confirm('Delete device "' + id + '?'))
+	{
+		document.actionForm.target.value = id;
+		document.actionForm.action.value = "remove";
+		document.actionForm.submit();
+	}
+}
+</script>
+
+<% if (!message.empty()) { %>
+<div class="error"><%= message %></div>
+<% } %>
+
+<form name="actionForm" method="post">
+<input type="hidden" name="action" value="">
+<input type="hidden" name="target" value="">
+</form>
+
+<div class="groupbox">
+<h2>System Settings</h2>
+
+<table class="list">
+<tbody>
+<tr>
+<td>Reflector Server</td>
+<td><a href="<%= pDeviceManager->config()->getString("webtunnel.reflectorURI", "") %>"><%= U::htmlize(pDeviceManager->config()->getString("webtunnel.reflectorURI", "")) %></a></td>
+</tr>
+<tr>
+<td>Domain</td>
+<td><%= U::htmlize(pDeviceManager->config()->getString("webtunnel.domain", "")) %></td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<div class="groupbox">
+<h2>Devices</h2>
+
+<table class="list">
+<thead>
+<tr>
+<th>Name</th>
+<th>ID</th>
+<th>Host</th>
+<th>Ports</th>
+<th>&nbsp;</th>
+</tr>
+</tr>
+</thead>
+<tbody>
+<%
+bool even = false;
+for (std::vector<std::string>::const_iterator it = devices.begin(); it != devices.end(); ++it) 
+{
+	Poco::AutoPtr<Poco::Util::AbstractConfiguration> pDeviceConfig = pDeviceManager->deviceConfiguration(*it);	
+%>
+<tr class="<%= even ? "even" : "odd" %>">
+<td><a href="/device/<%= *it %>"><%= U::htmlize(pDeviceConfig->getString("webtunnel.deviceName", "")) %></a></td>
+<td><%= U::htmlize(pDeviceConfig->getString("webtunnel.deviceId", "")) %></td>
+<td><%= U::htmlize(pDeviceConfig->getString("webtunnel.host", "")) %></td>
+<td><%= U::htmlize(pDeviceConfig->getString("webtunnel.ports", "")) %></td>
+<td><a href="#" onclick="removeDevice('<%= *it %>')"><img src="/images/minusicon.png" title="Remove Device"></a></td>
+</tr>
+<%
+	even = !even; 
+} 
+%>
+<tr class="<%= even ? "even" : "odd" %>">
+<td colspan="5"><a href="#" onclick="addDevice()"><img src="/images/plusicon.png" title="Add Device"></a></td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<%@ include page="../html/footer.inc" %>

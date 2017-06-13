@@ -1,0 +1,80 @@
+<!DOCTYPE HTML>
+<%@ page class="DevicePage" namespace="MyDevices" contentType="text/html;charset=utf-8" compressed="true" context="DeviceManager::Ptr" precondition="U::authenticate(request, response)" %>
+
+<%@ header include="DeviceManager.h" %>
+<%@ impl include="Utility.h" %>
+<%@ impl include="Poco/Path.h" %>
+
+<%@ include page="../html/template.inc" %>
+
+<%%
+	std::string message;
+	DeviceManager::Ptr pDeviceManager = context();
+	
+	Poco::Path p(request.getURI());
+	std::string target = p.getFileName();
+
+	Poco::AutoPtr<Poco::Util::AbstractConfiguration> pDeviceConfig = pDeviceManager->deviceConfiguration(target);	
+
+	pageTemplate.set("title", "Gateway > " + pDeviceConfig->getString("webtunnel.deviceName"));
+%>
+
+<%@ include page="../html/header.inc" %>
+
+<script>
+function cancelUpdateDevice(id)
+{
+	document.actionForm.action.value = "cancel";
+	document.actionForm.submit();
+}
+</script>
+
+<% if (!message.empty()) { %>
+<div class="error"><%= message %></div>
+<% } %>
+
+<div class="groupbox">
+<h2>Device Settings</h2>
+
+<form name="actionForm" method="post" action="/">
+<input type="hidden" name="action" value="update">
+<input type="hidden" name="target" value="<%= pDeviceConfig->getString("webtunnel.deviceId") %>">
+<table class="list">
+<tbody>
+<tr class="even">
+<td class="basicProperty">ID</td>
+<td><%= U::htmlize(pDeviceConfig->getString("webtunnel.deviceId")) %></td>
+</tr>
+<tr class="odd">
+<td class="basicProperty">Name</td>
+<td><input name="deviceName" value="<%= U::htmlize(pDeviceConfig->getString("webtunnel.deviceName")) %>" size="64" maxLength="64"></td>
+</tr>
+<tr class="even">
+<td class="basicProperty">Device IP Address or Domain Name</td>
+<td><input name="host" value="<%= U::htmlize(pDeviceConfig->getString("webtunnel.host")) %>" size="64" maxLength="64"></td>
+</tr>
+<tr class="odd">
+<td class="basicProperty">Forwarded TCP Ports</td>
+<td><input name="ports" value="<%= U::htmlize(pDeviceConfig->getString("webtunnel.ports")) %>" size="40" maxLength="40"></td>
+</tr>
+<tr class="even">
+<td class="basicProperty">Device HTTP Server Port</td>
+<td><input name="httpPort" value="<%= U::htmlize(pDeviceConfig->getString("webtunnel.httpPort")) %>" size="5" maxLength="5"></td>
+</tr>
+<tr class="odd">
+<td>Device Password</td>
+<td><input type="password" name="password" value="<%= U::htmlize(pDeviceConfig->getString("webtunnel.password")) %>" size="32" maxLength="32"></td>
+</tr>
+<tr class="even">
+<td colspan="2" style="text-align: right">
+<a href="#" onclick="cancelUpdateDevice()">Cancel</a>
+&nbsp;
+<input type="submit" value="Save">
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</form>
+
+<%@ include page="../html/footer.inc" %>
